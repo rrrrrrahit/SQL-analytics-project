@@ -1,0 +1,18 @@
+--Данный запрос рассчитывает выручку по месяцам(order_revenue), среднюю выручку(avg_order_revenue), накопительную выручку(cumulative_revenue) и процент от общей выручки(cumulative_percent).
+--На основе накопительной выручки выполняется ABC-анализ(abc_class), который делит месяцы на классы A, B и C по вкладу в общую выручку.
+--Используются оконные функции SUM() OVER() для расчета нарастающего итога(cumulative_revenue) и общей выручки(total_revenue).
+--Запрос может быть полезен для анализа роста и падения выручки в различные сезоны года.
+
+SELECT order_month, order_revenue::int, avg_order_revenue::int, cumulative_revenue::int, CONCAT((cumulative_revenue*100/total_revenue)::int, '%') AS cumulative_percent,
+CASE WHEN cumulative_revenue/total_revenue<=0.8 THEN 'A'
+	 WHEN cumulative_revenue/total_revenue<=0.95 THEN 'B'
+	 ELSE 'C' END AS abc_class
+FROM(
+SELECT EXTRACT('month' FROM order_date) AS order_month, SUM(unit_price*quantity) AS order_revenue, 
+	   AVG(unit_price*quantity) AS avg_order_revenue,
+	   (SUM(SUM(unit_price*quantity))OVER(ORDER BY EXTRACT('month' FROM order_date))) AS cumulative_revenue,
+	   SUM(SUM(unit_price*quantity))OVER() AS total_revenue
+FROM orders o, order_details od 
+WHERE o.order_id=od.order_id
+GROUP BY order_month 
+) AS a
